@@ -27,7 +27,7 @@ description: >-                        # used by seo meta and the atom feed
   A minimal, responsive, and powerful Jekyll theme for presenting professional writing.
 
 # fill in the protocol & hostname for your site, e.g., 'https://username.github.io'
-url: 'https://h4y3j1n.github.io/'
+url: ''
 
 github:
   username: H4Y3J1N             # change to your github username
@@ -48,7 +48,7 @@ social:
     # - https://www.facebook.com/username
     # - https://www.linkedin.com/in/username
 
-google_site_verification: "yOYfw7yvgv1JNKy78jIJgg5acuFuFWE-rID-pCpHPZ8"     # fill in to your verification string
+google_site_verification: yOYfw7yvgv1JNKy78jIJgg5acuFuFWE-rID-pCpHPZ8  # fill in to your verification string
 
 # ↑ --------------------------
 # The end of `jekyll-seo-tag` settings
