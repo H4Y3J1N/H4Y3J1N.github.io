@@ -9,7 +9,8 @@ published: True
 ---
 
 # Main Reference
-이번에는 Learning To Rank(LTR)에 대해 다뤄보고자 한다. LTR은 ‘랭킹 학습’으로, 이것이 기존의 Rating 추천과 어떻게 다른지 함께 다룰 예정이다.       
+이번에는 Learning To Rank(LTR)에 대해 다뤄보고자 한다.      
+LTR은 ‘랭킹 학습’으로, 이것이 기존의 Rating 추천과 어떻게 다른지 함께 다룰 예정이다.         
 본 포스트는 [Frank Fineis의 포스트](https://ffineis.github.io/blog/2021/05/01/lambdarank-lightgbm.html)의 내용을 번역하고, 이해를 돕기 위해 글쓴이가 해설 및 추가 공부를 통해 세부해설을 덧붙인 버전이다. 매끄러운 문장과 더 쉬운 설명을 위해 직역과 의역을 섞었고, 생략된 문단도 있다.        
 추가적으로 마이크로소프트의 논문 [From RankNet to LambdaRank to LambdaMART: An Overview](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/MSR-TR-2010-82.pdf)의 내용을 추가해 서술을 덧붙였다.   
      
@@ -107,7 +108,8 @@ tied pairs에 대한 훈련은 도움이 되지 않는다. 모델이 relevant한
 
 이 loss는 "pairwise logistic loss", "pairwise loss", "RankNet loss”로도 알려져 있다. (after the siamese neural network used for pairwise ranking first proposed in [[2]](#2)).
 
-<img align="center" src="../assets/img/commons/pairwise_logistic_loss.png" alt="logistic loss" width="600"/>
+![pairwise_logistic_loss](https://user-images.githubusercontent.com/88483620/207800351-28ae70a5-686a-4f93-815e-336678f7d886.png)
+_pairwise logistic loss_ 
 
 위 수식은 그리 어렵지 않다 : $Y_{i} > Y_{j}$이고, scores $s_{i} - s_{j} > 0$를 predict할 수 있을 때 모델은 작은 loss값을 가질 것이다.    
 * loss는 $s_{j} > s_{i}$일 때 큰 값을 가진다.     
@@ -210,7 +212,6 @@ rnk.predict(X[50, :].reshape(1, -1))  # pointwise score for row 50
 
 > array([-1.95225947])
 
-<!-- Other researchers have tried to develop better intuitions and better categorizations of LETOR models other than pointwise/pairwise/listwise. The best exploration of this topic I've found is Google's 2019 paper on *Groupwise Scoring Functions* [[5]](#5) which provides the foundation for the popular [Tensorflow Ranking library](https://github.com/tensorflow/ranking). The paper provides the notion of a *scoring function*, which is different than the objective/loss function. A LambdaMART model is a **pointwise scoring function**, meaning that our LightGBM ranker "takes a single document at a time as its input, and produces a score for every document separately." -->
 
 ## How objective functions work in LightGBM
 
@@ -242,39 +243,6 @@ There are actually a couple of different ranking objectives offered by LightGBM 
 - `LambdarankNDCG`: this is the selected objective class when you set `LGBMRanker(objective="lambdarank")`.
 - `RankXENDCG`: Rank-cross-entropy-NDCG loss ($XE_{NDCG}$ for short) is a new attempt to revise the lambdarank gradients through a more theoretically sound argument that involves transforming the model scores $s_{i}$ into probabilities and deriving a special form of multiclass log loss [[6]](#6).
 
-
-<!-- ## Connecting the math to the code
-All of the `lambdarank` math is located primarily in two methods within the `LambdarankNDCG` objective class:
-1. [`GetSigmoid`](https://github.com/microsoft/LightGBM/blob/master/src/objective/rank_objective.hpp#L228) performs a look-up operation on a pre-computed, discretized logistic function: \begin{align}
-\frac{\lambda_{ij}}{|\Delta NDCG_{ij}|} &= \frac{1}{1 + e^{\sigma(s_{i} - s_{j})}}
-\end{align} stored in a vector named `sigmoid_table_`. Using pre-computed logistic function values reduces the number of floating point operations needed to calculate the gradient and hessian for each row of the dataset during each boosting iteration. `GetGradientsForOneQuery` passes $(s_{i} - s_{j})$ to `GetSigmoid`, which applies a scaling factor to transform $(s_{i} - s_{j})$ into an integer value (of type `size_t` in C++) so that can then be used to look up the corresponding value within `sigmoid_table_`.
-2. [`GetGradientsForOneQuery`](https://github.com/microsoft/LightGBM/blob/master/src/objective/rank_objective.hpp#L140) processes individual queries. This method launches two `for` loops, the outer loop iterating from `i=0` to `truncation_level_` (a reference to the [`lambdarank_truncation_level`](https://lightgbm.readthedocs.io/en/latest/Parameters.html#lambdarank_truncation_level) parameter) and the inner loop iterating from `j=i+1` to `cnt`, the latter being the number of items within the query at hand. This is where the math comes in:
-
-```C++
-// calculate lambda for this pair
-double p_lambda = GetSigmoid(delta_score);              // 1 / (1 + e^(sigma * (s_i - s_j)))
-double p_hessian = p_lambda * (1.0f - p_lambda);        // Begin hessian calculation.
-// update
-p_lambda *= -sigmoid_ * delta_pair_NDCG;                // Finish lambdarank gradient: -sigma * |NDCG| / (1 + e^(sigma * (s_i - s_j)))
-p_hessian *= sigmoid_ * sigmoid_ * delta_pair_NDCG;     // Finish hessian calculation. See derivation below.
-```
-
-Let's tie the code together with the math, as I had particularly struggled to understand why `p_hessian =  p_lambda *  (1 - p_lambda)` was valid:
-
-\begin{align}
-\text{p_lambda} &= \frac{1}{1 + e^{\sigma(s_{i} - s_{j})}}
-\end{align}
-\begin{align}
-1 - \text{p_lambda} &= \frac{e^{\sigma(s_{i} - s_{j})}}{1 + e^{\sigma(s_{i} - s_{j})}}
-\end{align}
-\begin{align}
-\text{p_lambda}(1 - \text{p_lambda}) &= \frac{e^{\sigma(s_{i} - s_{j})}}{(1 + e^{\sigma(s_{i} - s_{j})})^{2}}
-\end{align}
-\begin{align}
-\Rightarrow \frac{\partial^{2}\text{logloss}}{\partial s_{i}^{2}} &= \sigma^{2}|\Delta NDCG_{ij}|\text{p_lambda}(1 - \text{p_lambda})
-\end{align}
-
-And that's just about it! There are some other tweaks that some LightGBM contributors have made, such as the option to "normalize" the gradients across different queries (controlled with the `lambdarank_norm` parameter), which helps prevent the case where one very long query with tons of irrelevant items gets an unfair "build-up" of gradient value relative to a shorter query. -->
 
 
 ## References
