@@ -4,7 +4,7 @@ date: 2022-11-14 15:00:00 +0800
 categories: [Rankig, 추천시스템]
 tags: [추천시스템, LGBM Ranker, lambdarank]
 math: true
-mermaid: true
+use_math: true
 pin: false
 published: True
 ---
@@ -33,7 +33,7 @@ Rank가 기존의 supervised learning tasks보다 어려운 가장 큰 이유는
 일반적인 연속 회귀 분석 또는 binary/multiclass/multilabel 레이블 분류 모델에서는, 하나의 input vector 를 하나의 output vector에 매핑한다.
 그리고 각 input은 일반적으로 $IID$ 분포로 가정된다. $IID$ 란 독립항등분포로, 확률변수가 여러 개 있을 때 (X 1 , X 2 , ... , X n) 이들이 상호독립적이며, 모두 동일한 확률분포 f(x)를 가진다면 독립항등분포라고 한다.
 추천 task의 최종 결과물은 아이템 목록(list)이다. 이 list 내에서 아이템들의 Rank를 매길 때, 측정 단위(항목)는 서로 독립적이지 않다. 오히려 서로 *relative* 하게(==상대적으로) 차등 순위가 매겨진다. 
-다시 말하자면, Ranking models이 출력해야 하는 것은 prob(확률)이나 조건부 평균 $E[Y|X]$ 추정치가 아니라 - list 내의 아이템들을 최적의 순서로 정렬(Ranking)한 값이다.
+다시 말하자면, Ranking models이 출력해야 하는 것은 prob(확률)이나 조건부 평균 $E[Y|X]$ 추정치가 아니라 list 내의 아이템들을 최적의 순서로 정렬(Ranking)한 값이다.
 세 가지 아이템이 있을 때, 대해 각각  $\{-\infty, 0, \infty\}$ 의 score를 출력하는 Rank 모델은, 동일한 아이템 각각에 대해 점수 $\{-0.01, -0.005, -0.001\}$를 출력하는 Rank 모델과 정확히 동일한 순위(3위, 2위, 1위가 될 것이다)를 제공한다. Ranking이 회귀나 분류와는 다르다는 말의 근거는 바로 이 맥락에 있다. 
 
 
@@ -57,24 +57,28 @@ Rank를 위한 데이터셋은 기본적으로 첫 번째 colmn에 종속 변수
 ## Pairwise loss starts with binary classification
 `lambdarank` LightGBM 모델의 objective는 표준 binary classification 모델의 objective를 수정한 것에 불과하다. 그러므로, 본격적인 시작 전 classification로 간단한 리프레시를 해 보겠다.
 
-두 개의 아이템, $i$ 와 $j$가 있다고 해 보자. 이때 $Y_{i} > Y_{j}$, 즉 $i$ 항목이 $j$ 항목보다 더 (유저에게)관련이 있다고 가정한다.    
+두 개의 아이템, $i$ 와 $j$가 있다고 해 보자. 이때 $Y_{i} > Y_{j}$, 즉 $i$ 항목이 $j$ 항목보다 더 (유저에게)관련이 있다(=선호가 높다)고 가정한다.    
 이 아이템들이 각각 $X_{i}$ 및 $X_{j}$의 특징 벡터로도 표현될 수 있다고 했을 때, $f(\cdot)$ 모델은 pairwise inconsistencies(불일치) 개수를 최소화하여 pairwise classification loss를 최소화한다.    
-$Y_{i} > Y_{j}$일 때, 좋은 모델은 $s_{i} = f(X_{i}) > f(X_{j}) = s_{j}$가 되도록 출력 값 $s_{i}, s_{j}$를 제공할 것이다.
+$Y_{i} > Y_{j}$일 때, 좋은 모델은 $s_{i} = f(X_{i}) > f(X_{j}) = s_{j}$가 되도록 출력 값 $s_{i}, s_{j}$를 제공할 것이다.    
+    
+    
+그렇다면 논리적으로, pairwise loss는 $s_{i} - s_{j} < 0$일 때 크고 $s_{i} - s_{j} > 0$일 때 작아야 한다. 이 차이를 사용하여 pair $(i, j)$가 "$Y=1$" 또는 $(j, i)$가 "$Y=0$"일 확률을 모델링할 수 있다.    
+그리고 이 classification model은 Bernoulli likelihood를 최대화(==MLE, Maximum Likelihood Estimation)할 것이다.  $\mathcal{L}$, $Y_{i} > Y_{j}$인 모든 pair $(i,j)$로 구성된 데이터가 주어지면 $\theta = Pr(y\|x)$로 parameter화된 Bernoulli likelihood는 다음과 같이 표현된다.
 
-
-Then logically, pairwise loss should be large when $s_{i} - s_{j} < 0$ and small when $s_{i} - s_{j} > 0$. We can use this difference to model the probability in a binary classification model that the pair $(i, j)$ as "$Y=1$" or $(j, i)$ as "$Y=0$". This classification model will maximize the Bernoulli likelihood, $\mathcal{L}$, given the data consisting of all pairs $(i, j)$ where $Y_{i} > Y_{j}$. The Bernoulli likelihood parameterized by $\theta = Pr(y\|x)$, is expressed as
 
 \begin{align}
 \mathcal{L} = \theta^{y}(1 -\theta)^{1-y}, \hspace{5mm} y \in \{0, 1\}
 \end{align}
 
-Since $\log(\cdot)$ is a monotone transformation - a fancy way of saing that $5 < 6 \rightarrow \log(5) < \log(6)$ - then maximizing Bernoulli likelihood and log-likelihood is the same thing. Log-likelihood, or $\ell\ell$ is given by
+$\log(\cdot)$가 단조 함수이기 때문에 - $5 < 6 \rightarrow \log(5) < \log(6)$라는 fancy한 방법 - Bernoulli likelihood를 최대화하는 것과 log-likelihood를 최대화하는 것은 같은 작업이다.  Log-likelihood, 혹은 $\ell\ell$는 다음과 같이 주어진다.
 
 \begin{align}
 \ell\ell = \log(\mathcal{L}) = y\log(\theta) + (1-y)\log(1 - \theta)
 \end{align}
 
-We typically express $Pr(y_{ij}\|s_{i}, s_{j})$ via the logistic function: $Pr(y_{ij}\|s_{i}, s_{j}) = \frac{1}{1 + e^{-\sigma(s_{i} - s_{j})}}$ because it's easy to differentiate and it gives us a way to smush pairwise model scores $s_{i}-s_{j}$ from $(-\infty, \infty)$ to the probability scale [0, 1]. The constant $\sigma$ it typical to set $\sigma=1$, but LightGBM exposes this as a hyperparameter named `sigmoid`, so I'll keep it in the notation.
+우리는 일반적으로 다음과 같은 logistic function을 통해 $Pr(y_{ij}\|s_{i}, s_{j})$를 표현한다 : $Pr(y_{ij}\|s_{i}, s_{j}} = \frac{1}{1 + e^{-\sigma(s_{i} - s_{j})}$     
+왜냐하면 구별하기 쉽고, pairwise model scores를 $s_{i}-s_{j}$를 $(-\infty, \infty)$에서 probability scale인 [0, 1] 사이로 변환할 수 있기 때문이다.    
+상수 $\sigma$는 일반적으로 $\sigma=1$을 설정하지만, LightGBM은 이것을 'sigmoid'라는 이름의 하이퍼 파라미터로 명시한다. 따라서 이후로는 sigmoid라고 표기하겠다.
 
 \begin{align}
 \ell\ell_{ij} &= y_{ij}\log(\frac{1}{1 + e^{-\sigma (s_{i} - s_{j})}}) + (1 - y_{ij})\log(\frac{e^{-\sigma(s_{i} - s_{j})}}{1 + e^{-\sigma(s_{i} - s_{j})}})
