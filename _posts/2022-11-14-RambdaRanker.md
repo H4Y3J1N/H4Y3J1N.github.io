@@ -75,9 +75,9 @@ $\log(\cdot)$가 단조 함수이기 때문에 - $5 < 6 \rightarrow \log(5) < \l
 \ell\ell = \log(\mathcal{L}) = y\log(\theta) + (1-y)\log(1 - \theta)
 \end{align}
 
-우리는 일반적으로 다음과 같은 logistic function을 통해 $Pr(y_{ij}\|s_{i}, s_{j})$를 표현한다 : $Pr(y_{ij}\|s_{i}, s_{j}} = \frac{1}{1 + e^{-\sigma(s_{i} - s_{j})}$     
+우리는 일반적으로 다음과 같은 logistic function을 통해 $Pr(y_{ij}\|s_{i}, s_{j})$를 표현한다 : $Pr(y_{ij}\|s_{i}, s_{j}) = \frac{1}{1 + e^{-\sigma(s_{i} - s_{j})}}$ 
 왜냐하면 구별하기 쉽고, pairwise model scores를 $s_{i}-s_{j}$를 $(-\infty, \infty)$에서 probability scale인 [0, 1] 사이로 변환할 수 있기 때문이다.    
-상수 $\sigma$는 일반적으로 $\sigma=1$을 설정하지만, LightGBM은 이것을 'sigmoid'라는 이름의 하이퍼 파라미터로 명시한다. 따라서 이후로는 sigmoid라고 표기하겠다.
+상수 $\sigma$는 일반적으로 $\sigma=1$을 설정하지만, LightGBM은 이것을 `sigmoid`라는 이름의 하이퍼 파라미터로 명시한다. 따라서 이후로는 sigmoid라고 표기하겠다.
 
 \begin{align}
 \ell\ell_{ij} &= y_{ij}\log(\frac{1}{1 + e^{-\sigma (s_{i} - s_{j})}}) + (1 - y_{ij})\log(\frac{e^{-\sigma(s_{i} - s_{j})}}{1 + e^{-\sigma(s_{i} - s_{j})}})
@@ -96,21 +96,30 @@ ML 엔지니어들은 일반적으로 loglikelihood의 -1배를 `logloss`라고 
 \text{logloss}\_{ij} = (y_{ij}-1)\log(e^{-\sigma (s_{i} - s_{j})}) + y_{ij}\log(1 + e^{-\sigma (s_{i} - s_{j})})
 \end{align}
 
-In the literature on pairwise loss for ranking, right here is where I've witnessed a slight of hand: we only need to learn from the cases where $y_{ij} = 1$. This is because negative cases are symmetric; when $Y_{i} > Y_{j}$ (meaning that the pair $(i, j)$ has the label $y=1$), this implies that $(j, i)$ has label $y=0$. Training on tied pairs doesn't help, because the model is trying to discern between relevant and irrelevant items. Therefore, all we really need to keep are the instances of $y_{ij}=1$, and the pairwise logloss expression can be simplified.
+pairwise loss for ranking에 대한 문헌에서, 이 부분은 원작자가 약간 손을 댄 부분이다 : 우리는 $y_{ij} = 1$인 경우에만 배우면 된다.    
+이는 negative cases가 symmetric하기 때문이다 ; $Y_{i} > Y_{j}$일 때($(i, j)$ pair에 label $y=1$이 있음을 의미), 이는 $(j, i)$에 $y=0$ label이 있음을 의미한다.    
+tied pairs에 대한 훈련은 도움이 되지 않는다. 모델이 relevant한 아이템과 irrelevant한 아이템을 구별하려고 하기 때문이다. 그러므로, 우리가 정말로 챙겨야 할 것은 $y_{ij}=1$의 instances이며, 그랬을 때 pairwise logloss를 단순화할 수 있다.
 
 \begin{align}
 \text{logloss}\_{ij} = \log(1 + e^{-\sigma (s_{i} - s_{j})})
 \end{align}
 
-This loss is also known as "pairwise logistic loss," "pairwise loss," and "RankNet loss" (after the siamese neural network used for pairwise ranking first proposed in [[2]](#2)).
+이 loss는 "pairwise logistic loss", "pairwise loss", "RankNet loss”로도 알려져 있다. (after the siamese neural network used for pairwise ranking first proposed in [[2]](#2)).
 
-<img align="center" src="../../../../images/pairwise_logistic_loss.png" alt="logistic loss" width="600"/>
+<img align="center" src="../assets/img/commons/pairwise_logistic_loss.png" alt="logistic loss" width="600"/>
 
-It's not too difficult to understand: when $Y_{i} > Y_{j}$, the model will achieve small loss when it can predict scores $s_{i} - s_{j} > 0$. The loss will be large when $s_{j} > s_{i}$. The gradient of the loss for any $s_{i} - s_{j}$ is also controlled by $\sigma$. Larger values of $\sigma$ penalize pairwise inconsistencies than values closer to zero.
+위 수식은 그리 어렵지 않다 : $Y_{i} > Y_{j}$이고, scores $s_{i} - s_{j} > 0$를 predict할 수 있을 때 모델은 작은 loss값을 가질 것이다.    
+* loss는 $s_{j} > s_{i}$일 때 큰 값을 가진다.     
+* 모든 $s_{i} - s_{j}$에 대한 gradient loss는 $\sigma$에 의해 제어된다.
+
+$\sigma$ 값이 클수록, 0에 가까운 값보다 pairwise inconsistencies에 패널티를 준다. 
 
 
-## LightGBM implements gradient boosting with the lambdarank gradient
-LightGBM is a machine learning library for gradient boosting. The core idea behind gradient boosting is that if you can take the first and second derivatives of a loss function you're seeking to minimize (or an objective function you're seeking to maximize), then LightGBM can find a solution for you using gradient boosted decision trees (GBDTs). Gradient boosting is more or less a functional version of [Newton's method](https://en.wikipedia.org/wiki/Newton%27s_method_in_optimization), which is why we need the gradient and hessian. During training it builds a sequence of decision trees each fit to the gradient of the loss function when the model is evaluated on the data at the current boosting iteration.
+## LightGBM 는 lambdarank gradient로 gradient boosting을 구현한다.
+Gradient boosting의 핵심 아이디어는 다음과 같다 :  minimize하려는 loss function(또는 maximize하려는 objective function)의 첫 번째 및 두 번째 결과물을 취할 수 있다면, LightGBM은 gradient boosted decision trees(GBDT)를 사용하여 해결책을 찾을 수 있다는 것이다.    
+그라데이션 부스팅은 [Newton's method](https://en.wikipedia.org/wiki/Newton%27s_method_in_optimization)의 functional version이기 때문에 gradient(기울기)와 헤세 정렬(hessian)이 필요하다.    
+current boosting iteration에서 model이 evaluate되는 경우, Gradient boosting은 학습을 통해 각각의 loss function의 기울기에 맞는  decision trees를 구축한다.
+
 
 \begin{align}
 \frac{\partial \text{logloss}\_{ij}}{\partial s_{i}} &= \frac{-\sigma e^{-\sigma(s_{j} - s_{i})}}{1 + e^{-\sigma(s_{i} - s_{j})}}
@@ -122,25 +131,35 @@ LightGBM is a machine learning library for gradient boosting. The core idea behi
 &= \lambda_{ij}
 \end{align}
 
-*This* is where the "lambda" in `lambdarank` comes from.
+`lambdarank` 의 *"lambda"* 는 바로 여기서 유래한다.      
+$\lambda_{ij}$ gradients의 중요한 단점을 주목하라. **lambda_gradients는 자신이 현재 어디 있는지, 위치를 완전히 알지 못한다**. (Loss Landscape의 관점에서 이 문장을 이해하는 게 좋다.)
+$\lambda_{ij}$를 도출하는 데 사용한 pairwise loss는, 쿼리의 상단/하단 둘 중 어디에서 pairs를 잘못 정렬했는지 여부에 차이를 두지 않고, loss값을 동일하게 처리한다.
+예를 들어, $s_{i} - s_{j}$와 $Y_{i}$와 $Y_{j}$가 동일할 때 $(1, 3)$와 $(100, 101)$ 쌍에 동일한 손실과 기울기가 할당되는 것이다.    
+그러나 대부분의 eCommerce 또는 Google/Bing 사용자는 시간의 약 90%를 쿼리의 상단에서 보내기 때문에, 처음 몇 개의 위치 내에 나타나는 아이템들을 optimze하는 것이 훨씬 더 중요하다.    
+2006년에 Burges [[4]](#4)가 제안한 가능한 correction은, $(i,j)$ 항목의 incorrect pairwise을 사용할 때 발생하는 NDCG(a positionally-aware ranking metric)의 변경으로 $\lambda_{ij}$를 스케일링하는 것이었다 : 
 
-Note a critical shortcoming of the $\lambda_{ij}$ gradients - **they are completely positionally unaware**. The formulation of the pairwise loss that we've used to derive the $\lambda_{ij}$ treats the loss the same whether we've incorrectly sorted two items near the top of the query or near the bottom of the query. For example, it would assign the same loss and gradient to the pairs $(1, 3)$ and $(100, 101)$ when $s_{i} - s_{j}$ and $Y_{i}$ and $Y_{j}$ are the same. But most eCommerce or Google/Bing users spend like 90% of their time near the top of the query, so it's much more important to optimze the items appearing within the first few positions. A possible correction proposed by Burges in 2006 [[4]](#4) was to just scale $\lambda_{ij}$ by the change in NDCG (a positionally-aware ranking metric) that would be incurred if the incorrect pairwise sorting of items $(i, j)$ was used:
 
 \begin{align}
 \lambda_{ij} = \log(1 + e^{-\sigma (s_{i} - s_{j})})|\Delta NDCG_{ij}|
 \end{align}
 
-This is known as the **lambdarank gradient**. The claim is that by using this form of the gradient within a loss minimization procedure, we end up maximizing NDCG. Well, if this decision to scale the original $\lambda_{ij}$ by $\|\Delta NDCG_{ij}\|$ seems kind of arbitrary to you, you are not alone. Several researchers have taken issue with it, viewing it more as a hack than a true gradient of a real loss function [[7]](#7). Just know that the term `lambdarank` does not refer to a loss function (like some other LightGBM `objective` strings like `"mse"` or `"mape"`), but to an explicit gradient formulation.
+이를 **lambdarank gradient**라고 한다. loss minimization procedure 내에서 이러한 형태의 gradient를 사용함으로써 NDCG를 maximizing한다는 주장이다. 원래의 $\lambda_{ij}$를 $\|\Delta NDCG_{ij}\|$만큼 확장하기로 한 이 결정이 혹시 임의적으로 보이는가? 실제로 몇몇 연구자들은 이를 실제 loss function [7](#7)의 진정한 gradient라기보다는 hack으로 간주하며 문제를 제기하기도 했다 [[7]](#7).    
+`lambdarank`라는 용어란 loss function(like some other LightGBM `objective` strings like `"mse"` or `"mape”`)을 지칭하는 것이 아니라 explicit한 gradient formulation을 의미한다는 것을 알아두도록 하자.    
 
-Anyway, we have the positionally-aware "gradient" of the pairwise loss function with respect to a single product-product pair $(i, j)$ of differentially-labeled products. LightGBM and GBDTs generally regress decision trees on the loss gradients computed with respect to *individual samples* (or rows of a dataset), not single products within pairs of products.
+어쨌든, 우리는 positionally-aware "gradient”의 pairwise loss function을 가지고 있다. (물론 이 기울기는 differentially-labeled products인 아이템 single product - product pair $(i, j)$에 대한 것이다.)   
+LightGBM과 GBDT는 일반적으로 제품 쌍 내의 단일 제품이 아니라 *individual samples*(또는 데이터 세트의 rows)과 관련하여 계산된 loss gradients 에 대해 decision trees를 회귀학습시킨다.
 
-In order to just get the *gradient with respect to product i*, we have to accumulate the gradient across all pairs of products where $i$ is the more-relevant item, and symmetrically, across all pairs where $i$ is the less-relevant item. Let $I$ refer to the set of item pairs $(i, j)$ where the first item is more relevant than the second item.
+In order to just get the *gradient with respect to product i*, we have to accumulate the gradient across all pairs of products where $i$ is the more-relevant item, and symmetrically, across all pairs where $i$ is the less-relevant item.     
+(문장 다듬기 중) *gradient with respect to product i*를 얻기 위해, 우리는 모든 아이템 pair에 대해 gradient를 누적해야 한다. (이때 $i$는 모든 pair에 걸쳐 더 relevant한 아이템이고, symmetrical하다.) 여기서 $i$는 less-relevant한 아이템이다.    
+$I$는 첫 번째 아이템이 두 번째 아이템보다 더 relevant한 item pairs 집합 $(i,j)$을 참조하도록 한다.
 
 \begin{align}
 \lambda_{i} = \sum_{j:\{i, j\} \in I}\lambda_{ij} - \sum_{j:\{j, i\} \in I}\lambda_{ij}
 \end{align}
 
-We need to take a quick detour. Confusingly, LightGBM (as well as XGBoost) are known as **gradient boosted** tree learning libraries. They actually implement *Newton boosting* [[3]](#3). Gradient boosting is premised on taking a **first**-order Taylor approximation of the loss function about the current estimates of the loss at each step of the tree-estimation process. But you can get better results by taking higher-order approximations to the loss function, and LightGBM uses a **second**-order approximation. In basic gradient boosting, during each boosting iteration we fit a new decision tree directly to $Y = g_{i}^{k}$, where $g_{i}^{k} = \lambda_{i}^{k}$, the gradient of the loss of the model on iteration $k$. But in Newton boosting, the regression involves both the hessian (designated $h_{i}^{k}$) and the gradient:
+혼란스럽게도, LightGBM(XGBoost)은 *gradient boosted* tree 학습 라이브러리로 알려져 있다. 그것은 실제로 *Newton boosting* [3](#3)을 구현한다. Gradient boosting은 tree-estimation 프로세스의 각 단계에서 loss의 현재 estimation에 대한 loss funtion의 **first** - 1차 Taylor approximation를 취하는 것을 전제로 한다. 그러나 loss function에 higher-order approximations를 취하면 더 나은 결과를 얻을 수 있으며, LightGBM은 **second** - 2차 근사치를 사용한다.
+기본 gradient boosting에서 각 부스팅 반복 중에 우리는 새로운 decision tree를 $Y = g_{i}^{k}$에 직접 적합시킨다. 여기서 $g_{i}^{k}$는 iteration $k$에서 모델 loss의 기울기다.    
+그러나 Newton boosting에서 regression은 hessian(designated $h_{i}^{k}$)와 기울기를 모두 포함한다 : 
 
 
 \begin{align}
@@ -148,7 +167,7 @@ We need to take a quick detour. Confusingly, LightGBM (as well as XGBoost) are k
 \end{align}
 
 
-Since we've only derived the first derivative of the loss, let's find the second derivative by applying the quotient rule:
+loss의 첫 번째 도함수만 도출했으므로, quotient rule을 적용하여 두 번째 도함수를 찾아보자 : 
 
 \begin{align}
 \frac{\partial^{2} \text{logloss}\_{ij}}{\partial s_{i}^{2}} &= \frac{\sigma^{2}e^{-\sigma(s_{j} - s_{i})}|\Delta NDCG_{ij}|}{(1 + e^{-\sigma(s_{j} - s_{i})})^{2}}
@@ -160,12 +179,18 @@ Since we've only derived the first derivative of the loss, let's find the second
 &= \lambda_{ij}\frac{-\sigma e^{-\sigma(s_{j} - s_{i})}}{1 + e^{-\sigma(s_{j} - s_{i})}}
 \end{align}
 
-And we're done with the math! Later on we'll map these components of the gradient and hessian to the actual C++ code used in LightGBM's actual lambdarank objective source code.
+수식 계산은 딱 여기까지다!     
+
 
 #### **Pointwise, pairwise, or listwise?**
-A very confusing aspect of the `lambdarank` gradient is that despite being closely related to the gradient of the classic pairwise loss function, a LightGBM `LGBMRanker` model can score *individual* items within a query. It does not expect for two inputs to be provided as ranking input like `rnk.predict(x1, x2)`. Further, the calculations required to derive the gradient, $\frac{\partial \text{logloss}}{\partial s_{i}}$ involves sums over all pairs of items within a query, as if it were a listwise LETOR algorithm.
+`lambdarank` gradient의 매우 혼란스러운 측면은, classic한 pairwise loss function의 gradient와 밀접한 관련이 있음에도 불구하고, LightGBM `LGBMRanker` 모델이 쿼리 내에서 *개별* 항목에 score를 매길 수 있다는 것이다. ranking 제시를 위해 'rnk.predict(x1,x2)'처럼 두 개의 inputs을 넣을 필요가 없다.
+또한, gradient $\frac{\partial \text{logloss}}{\partial s_{i}}$를 도출하는 데 필요한 계산은, 이것이 마치 listwise Rank 알고리즘인 것처럼 쿼리 내의 모든 아이템 pairs에 대한 합계를 포함한다.    
+    
+팩트는  `lambdarank` LightGBM gradient 가 pairwise classification에 기초한다는 것이다.
+그러나  lambdaMART model모델은 decision tree 모델 학습도 포함시킨다. 쿼리 내에서 differentially-labeled된 모든 아이템 pair의 기울기 계산을 위해서다. 
+각 개별 아이템(each row in the training data)에 기울기 값이 할당된 다음, LightGBM은 해당 gradients에 대해 tree 모델을 회귀 학습시킨다.    
+이것이 우리가 `rnk.predict(x1)`와 같은 개별 아이템에 score를 매길 수 있는 이유이다 : 
 
-The fact is that the `lambdarank` LightGBM gradient is based on pairwise classification, but a lambdaMART model involves fitting decision trees to gradients computed g all pairs of differentially-labeled items within a query. Each individual item (each row in the training data) is assigned its own gradient value, and then LightGBM simply regresses trees on those gradients. This is why we can score individual items like `rnk.predict(x1)`:
 
 ```{python}
 import lightgbm as lgb
@@ -184,14 +209,13 @@ rnk.predict(X[50, :].reshape(1, -1))  # pointwise score for row 50
 
 > array([-1.95225947])
 
-Other researchers have tried to develop better intuitions and better categorizations of LETOR models other than pointwise/pairwise/listwise. The best exploration of this topic I've found is Google's 2019 paper on *Groupwise Scoring Functions* [[5]](#5) which provides the foundation for the popular [Tensorflow Ranking library](https://github.com/tensorflow/ranking). The paper provides the notion of a *scoring function*, which is different than the objective/loss function. A LambdaMART model is a **pointwise scoring function**, meaning that our LightGBM ranker "takes a single document at a time as its input, and produces a score for every document separately."
+<!-- Other researchers have tried to develop better intuitions and better categorizations of LETOR models other than pointwise/pairwise/listwise. The best exploration of this topic I've found is Google's 2019 paper on *Groupwise Scoring Functions* [[5]](#5) which provides the foundation for the popular [Tensorflow Ranking library](https://github.com/tensorflow/ranking). The paper provides the notion of a *scoring function*, which is different than the objective/loss function. A LambdaMART model is a **pointwise scoring function**, meaning that our LightGBM ranker "takes a single document at a time as its input, and produces a score for every document separately." -->
 
 ## How objective functions work in LightGBM
-You might be used to interacting with LightGBM in R or Python, but it's actually a C++ library that just happens to have well built-out R and Python APIs. Navigate to `src/objectives` and you'll see the implementations of specific objective/loss functions such as `rank_objective.cpp` in addition to `objective_function.cpp` which implements a objective class [factory](https://en.wikipedia.org/wiki/Factory_method_pattern).
 
-Each individual objective class **must** define a method named `GetGradients` that can update model `score` (aka "loss") values, `gradients`, and `hessians`. Each objective file may contain multiple objective classes. The  `GDBT` class contained within `boosting/gbdt.cpp` that actually [calls](https://github.com/microsoft/LightGBM/blob/master/src/boosting/gbdt.cpp#L178) `GetGradients` to fit regression trees within LightGBM's main training routine.
-
-In `rank_objective.cpp`, `GetGradients` just iterates over queries in the training set, calling an inner `GetGradientsForOneQuery` that calculates the pairwise loss and lambdarank gradients/hessians for each item within each query.
+각 objective class는 반드시 모델 'score'(일명 "loss") 값, 'gradients' 및 'hessians'을 업데이트할 수 있는 'GetGradients'라는 이름의 method를 정의해야 한다.
+각각의 objective 파일은 여러 개의 objective classes를 포함할 수 있다.
+`GDBT` class 는 `boosting/gbdt.cpp` 를 포함하고 있다. 그것은 GetGradients를 실제로 호출해 LightGBM의 메인 학습 루틴에 regression trees를 훈련시킨다.
 
 ```
 void GetGradients(const double* score, score_t* gradients,
@@ -218,7 +242,7 @@ There are actually a couple of different ranking objectives offered by LightGBM 
 - `RankXENDCG`: Rank-cross-entropy-NDCG loss ($XE_{NDCG}$ for short) is a new attempt to revise the lambdarank gradients through a more theoretically sound argument that involves transforming the model scores $s_{i}$ into probabilities and deriving a special form of multiclass log loss [[6]](#6).
 
 
-## Connecting the math to the code
+<!-- ## Connecting the math to the code
 All of the `lambdarank` math is located primarily in two methods within the `LambdarankNDCG` objective class:
 1. [`GetSigmoid`](https://github.com/microsoft/LightGBM/blob/master/src/objective/rank_objective.hpp#L228) performs a look-up operation on a pre-computed, discretized logistic function: \begin{align}
 \frac{\lambda_{ij}}{|\Delta NDCG_{ij}|} &= \frac{1}{1 + e^{\sigma(s_{i} - s_{j})}}
@@ -249,7 +273,7 @@ Let's tie the code together with the math, as I had particularly struggled to un
 \Rightarrow \frac{\partial^{2}\text{logloss}}{\partial s_{i}^{2}} &= \sigma^{2}|\Delta NDCG_{ij}|\text{p_lambda}(1 - \text{p_lambda})
 \end{align}
 
-And that's just about it! There are some other tweaks that some LightGBM contributors have made, such as the option to "normalize" the gradients across different queries (controlled with the `lambdarank_norm` parameter), which helps prevent the case where one very long query with tons of irrelevant items gets an unfair "build-up" of gradient value relative to a shorter query.
+And that's just about it! There are some other tweaks that some LightGBM contributors have made, such as the option to "normalize" the gradients across different queries (controlled with the `lambdarank_norm` parameter), which helps prevent the case where one very long query with tons of irrelevant items gets an unfair "build-up" of gradient value relative to a shorter query. -->
 
 
 ## References
