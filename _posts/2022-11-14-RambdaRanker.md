@@ -5,14 +5,15 @@ categories: [Rankig, 추천시스템]
 tags: [추천시스템, LGBM Ranker, lambdarank]
 math: true
 pin: false
-published: False
+published: True
 ---
 
 # Main Reference
+이번에는 Learning To Rank(LTR)에 대해 다뤄보고자 한다. LTR은 ‘랭킹 학습’으로, 이것이 기존의 Rating 추천과 어떻게 다른지 함께 다룰 예정이다.       
 본 포스트는 [Frank Fineis의 포스트](https://ffineis.github.io/blog/2021/05/01/lambdarank-lightgbm.html)의 내용을 번역하고, 이해를 돕기 위해 글쓴이가 해설 및 추가 공부를 통해 세부해설을 덧붙인 버전이다. 매끄러운 문장과 더 쉬운 설명을 위해 직역과 의역을 섞었고, 생략된 문단도 있다.        
-기본 논리 전개 틀은 원문의 흐름을 따라감을 사전에 밝힌다.   
-    
-
+추가적으로 마이크로소프트의 논문 [From RankNet to LambdaRank to LambdaMART: An Overview](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/MSR-TR-2010-82.pdf)의 내용을 추가해 서술을 덧붙였다.   
+     
+   
 # 랭킹의 목표 (== Ranking objective)
 
 sort-order 아이템들을 최적의 방식으로 정렬하는 방식은 Rank 학습(or LETOR. 이 포스트에서는 이후로 Rank라고 지칭한다.)라고도 하며, 사람들이 흔히 쓰지 않는 supervised machine learning의 일종이다.    
