@@ -5,7 +5,7 @@ categories: [Rankig, 추천시스템]
 tags: [추천시스템, LGBM Ranker, lambdarank]
 math: true
 pin: false
-published: False
+published: True
 ---
 
 # Main Reference
