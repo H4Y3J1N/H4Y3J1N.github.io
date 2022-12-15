@@ -3,7 +3,6 @@ title: LGBM 모델에서 lambdarank objective의 내부작동원리
 date: 2022-11-14 15:00:00 +0800
 categories: [Rankig, 추천시스템]
 tags: [추천시스템, LGBM Ranker, lambdarank]
-math: true
 use_math: true
 pin: false
 published: True
@@ -90,7 +89,8 @@ $\log(\cdot)$가 단조 함수이기 때문에 - $5 < 6 \rightarrow \log(5) < \l
 &= (1 - y_{ij})\log(e^{-\sigma (s_{i} - s_{j})}) - y_{ij}\log(1 + e^{-\sigma (s_{i} - s_{j})})
 \end{align}
 
-If maximizing $\ell \ell_{ij}$ is good, then minimizing $-\ell \ell_{ij}$ must also be good. Machine learning practicioners commonly refer to -1 times the loglikelihood as `logloss`:
+$\ell \ell_{ij}$를 최대화한 효과가 좋다면, $-\ell \ell_{ij}$를 최소화한 효과도 좋아야 한다. 
+ML 엔지니어들은 일반적으로 loglikelihood의 -1배를 `logloss`라고 한다 : 
 
 \begin{align}
 \text{logloss}\_{ij} = (y_{ij}-1)\log(e^{-\sigma (s_{i} - s_{j})}) + y_{ij}\log(1 + e^{-\sigma (s_{i} - s_{j})})

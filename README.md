@@ -26,7 +26,7 @@
 - Table of Contents
 - Auto-generated Related Posts
 - Syntax Highlighting
-- Mathematical Expressions
+- ematical Expressions
 - Mermaid Diagram & Flowchart
 - Disqus/Utterances/Giscus Comments
 - Search
