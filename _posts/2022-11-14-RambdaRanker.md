@@ -3,7 +3,7 @@ title: LGBM 모델에서 lambdarank objective의 내부작동원리
 date: 2022-11-14 15:00:00 +0800
 categories: [Rankig, 추천시스템]
 tags: [추천시스템, LGBM Ranker, lambdarank]
-use_math: true
+math: true
 pin: false
 published: True
 ---
@@ -64,7 +64,7 @@ $Y_{i} > Y_{j}$일 때, 좋은 모델은 $s_{i} = f(X_{i}) > f(X_{j}) = s_{j}$�
 그렇다면 논리적으로, pairwise loss는 $s_{i} - s_{j} < 0$일 때 크고 $s_{i} - s_{j} > 0$일 때 작아야 한다. 이 차이를 사용하여 pair $(i, j)$가 "$Y=1$" 또는 $(j, i)$가 "$Y=0$"일 확률을 모델링할 수 있다.    
 그리고 이 classification model은 Bernoulli likelihood를 최대화(==MLE, Maximum Likelihood Estimation)할 것이다.  $\mathcal{L}$, $Y_{i} > Y_{j}$인 모든 pair $(i,j)$로 구성된 데이터가 주어지면 $\theta = Pr(y\|x)$로 parameter화된 Bernoulli likelihood는 다음과 같이 표현된다.
 
-
+<!-- 
 \begin{align}
 \mathcal{L} = \theta^{y}(1 -\theta)^{1-y}, \hspace{5mm} y \in \{0, 1\}
 \end{align}
@@ -90,7 +90,7 @@ $\log(\cdot)$가 단조 함수이기 때문에 - $5 < 6 \rightarrow \log(5) < \l
 \end{align}
 
 $\ell \ell_{ij}$를 최대화한 효과가 좋다면, $-\ell \ell_{ij}$를 최소화한 효과도 좋아야 한다. 
-ML 엔지니어들은 일반적으로 loglikelihood의 -1배를 `logloss`라고 한다 : 
+ML 엔지니어들은 일반적으로 loglikelihood의 -1배를 `logloss`라고 한다 :  -->
 
 \begin{align}
 \text{logloss}\_{ij} = (y_{ij}-1)\log(e^{-\sigma (s_{i} - s_{j})}) + y_{ij}\log(1 + e^{-\sigma (s_{i} - s_{j})})
