@@ -5,7 +5,7 @@ categories: [Rankig, 추천시스템]
 tags: [추천시스템, LGBM Ranker, lambdarank, LTR, Learning To Rank]
 math: true
 pin: false
-published: False
+published: True 
 ---
 
 이번 포스트에서는 `Learning To Rank(LTR)`에 대해 다뤄보고자 한다.      
@@ -61,8 +61,10 @@ Rank가 기존의 supervised learning tasks보다 복잡하게 느껴지는 이�
 
 데이터셋은 크게 4가지(로그 데이터를 생성한 유저, 로그 대상 아이템, 유저와 아이템의 관계를 표현한 피처, 검색어와 문서의 관련성을 표현한 라벨) 정보로 구성된다. 예를 들어 검색어 u1과 관련된 아이템은 {l1, l2}이고, (u1, l1)와 (u1, l2)의 관계를 표현한 피처가 각각 x1, x2다. 중요한 것은 relevance인데, 이는 각 유저가 아이템과 얼마나 관련성 있는지 나타내는 값으로, 추천시스템은 relevance를 implicit 혹은 explicit한 여러 방식으로 정의할 수 있다. 일단 이 테이블에서는 평점이라고 정의하겠다.
 
-![LTR_hyejin_table](https://user-images.githubusercontent.com/88483620/208029112-15c85c16-81b1-43ef-92c3-cea3db30ec08.png)
+![LTR_hyejin_table](https://user-images.githubusercontent.com/88483620/208029112-15c85c16-81b1-43ef-92c3-cea3db30ec08.png)   
+
 _출처 : 이혜진님 포스트_
+
 
 위 이미지에서는 왼쪽의 행렬에 주목하라. 이처럼 유저-아이템 평점 행렬을 만들 수 있다면, 랭킹학습을 위한 데이터셋을 쉽게 만들어 볼 수 있다. 데이터셋을 봤으니, 이제는 모델 학습 컨셉과 loss function까지 차근차근 알아보자.      
 
@@ -265,7 +267,7 @@ There are actually a couple of different ranking objectives offered by LightGBM 
 
 
 
-## References
+## other References
 <a id="1">[1]</a>
 Joachims, 2008. [SVMlight](https://www.cs.cornell.edu/people/tj/svm_light/)
 
