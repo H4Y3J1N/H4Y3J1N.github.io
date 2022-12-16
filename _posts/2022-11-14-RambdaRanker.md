@@ -235,7 +235,7 @@ rnk.predict(X[50, :].reshape(1, -1))  # pointwise score for row 50
 > array([-1.95225947])
 
 
-## How objective functions work in LightGBM
+## How objective functions work in LightGBM (작성중)
 
 각 objective class는 반드시 모델 'score'(일명 "loss") 값, 'gradients' 및 'hessians'을 업데이트할 수 있는 'GetGradients'라는 이름의 method를 정의해야 한다.
 각각의 objective 파일은 여러 개의 objective classes를 포함할 수 있다.
