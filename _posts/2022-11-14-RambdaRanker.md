@@ -1,5 +1,5 @@
 ---
-title: Learning To Rank와 lambdarank objective의 작동원리
+title: Learning To Rank와 lambdarank objective 작동원리
 date: 2022-11-14 15:00:00 +0800
 categories: [Rankig, 추천시스템]
 tags: [추천시스템, LGBM Ranker, lambdarank, LTR, Learning To Rank]
