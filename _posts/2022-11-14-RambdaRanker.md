@@ -46,7 +46,7 @@ Rank가 기존의 supervised learning tasks보다 복잡하게 느껴지는 이�
    
 
 
-# Learning To Rank Dataset   
+# Learning To Rank Dataset & Model Concept   
 이제는 예시 데이터를 사용해 더 자세히 알아보자. 데이터셋의 구조는 [이혜진님의 포스트](https://leehyejin91.github.io/post-learning_to_rank_1/)에서 가져온 것이다. 
 
    
@@ -61,19 +61,18 @@ Rank가 기존의 supervised learning tasks보다 복잡하게 느껴지는 이�
 
 데이터셋은 크게 4가지(로그 데이터를 생성한 유저, 로그 대상 아이템, 유저와 아이템의 관계를 표현한 피처, 검색어와 문서의 관련성을 표현한 라벨) 정보로 구성된다. 예를 들어 검색어 u1과 관련된 아이템은 {l1, l2}이고, (u1, l1)와 (u1, l2)의 관계를 표현한 피처가 각각 x1, x2다. 중요한 것은 relevance인데, 이는 각 유저가 아이템과 얼마나 관련성 있는지 나타내는 값으로, 추천시스템은 relevance를 implicit 혹은 explicit한 여러 방식으로 정의할 수 있다. 일단 이 테이블에서는 평점이라고 정의하겠다.
 
-![LTR_hyejin_table](https://user-images.githubusercontent.com/88483620/208009459-48460ba5-9e43-41ef-ab85-96c60c9a2469.png)
+![LTR_hyejin_table](https://user-images.githubusercontent.com/88483620/208029112-15c85c16-81b1-43ef-92c3-cea3db30ec08.png)
 _출처 : 이혜진님 포스트_
 
 위 이미지에서는 왼쪽의 행렬에 주목하라. 이처럼 유저-아이템 평점 행렬을 만들 수 있다면, 랭킹학습을 위한 데이터셋을 쉽게 만들어 볼 수 있다. 데이터셋을 봤으니, 이제는 모델 학습 컨셉과 loss function까지 차근차근 알아보자.      
 
+> 일반적으로 LTR에서는 relevance(score) 예측 모델을 만든다. input은 feature이며, 모델이 relevance(score)를 예측한다는 점에서 scoring function이라고 한다.    
 
-# Learning To Rank Model Concept
-일반적으로 LTR에서는 relevance(score) 예측 모델을 만든다. input은 feature이며, 모델은 relevance(score)를 예측한다는 점에서 scoring function이라고 한다. 
-
-
+LTR을 다룰 때 빼놓을 수 없는 것이 바로, RankNet, LambdaRank, LambdaMART이다. 우선 Rank loss에 대해 알아보고, 나머지는 글의 뒷부분에서 천천히 알아보자.
 
 
-## binary classification으로 Pairwise loss 이해하기
+# Pairwise loss(==Ranknet Loss) 이해하기
+
 `lambdarank` LightGBM 모델의 objective는 표준 binary classification 모델의 objective를 수정한 것에 불과하다. 그러므로, 본격적인 시작 전 classification로 간단한 리프레시를 해 보겠다.
 
 두 개의 아이템, $i$ 와 $j$가 있다고 해 보자. 이때 $Y_{i} > Y_{j}$, 즉 $i$ 항목이 $j$ 항목보다 더 (유저에게)관련이 있다(=선호가 높다)고 가정한다.    
@@ -132,13 +131,15 @@ _pairwise logistic loss_
 위 수식은 그리 어렵지 않다 : $Y_{i} > Y_{j}$이고, scores $s_{i} - s_{j} > 0$를 predict할 수 있을 때 모델은 작은 loss값을 가진다.    
 * loss는 $s_{j} > s_{i}$일 때 큰 값을 가진다.      
 * 모든 $s_{i} - s_{j}$에 대한 gradient loss는 $\sigma$에 의해 제어된다.    
-$\sigma$ 값이 클수록, 0에 가까운 값보다 pairwise 불일치(inconsistencies)에 패널티를 준다. 
+$\sigma$ 값이 클수록, 0에 가까운 값보다 pairwise 불일치(inconsistencies)에 패널티를 준다.    
 
 
-## LightGBM 는 lambdarank gradient로 gradient boosting을 구현한다.
-Gradient boosting의 핵심 아이디어는 다음과 같다 :  minimize하려는 loss function(또는 maximize하려는 objective function)의 첫 번째 및 두 번째 결과물을 취할 수 있다면, LightGBM은 gradient boosted decision trees(GBDT)를 사용하여 해결책을 찾을 수 있다는 것이다.    
-그라데이션 부스팅은 [Newton's method](https://en.wikipedia.org/wiki/Newton%27s_method_in_optimization)의 functional version이기 때문에 gradient(기울기)와 헤세 정렬(hessian)이 필요하다.    
-current boosting iteration에서 model이 evaluate되는 경우, Gradient boosting은 학습을 통해 각각의 loss function의 기울기에 맞는  decision trees를 구축한다.
+
+## LightGBM : lambdarank gradient로 gradient boosting 구현하기
+휴! 이제 드디어 lambdarank에 대해 다뤄볼 수 있다.   
+
+Gradient boosting은 [Newton's method](https://en.wikipedia.org/wiki/Newton%27s_method_in_optimization)의 functional version이기 때문에 gradient(기울기)와 헤세 정렬(hessian)이 필요하다.    
+current boosting iteration에서 model이 evaluate되는 경우, Gradient boosting은 학습을 통해 각각의 loss function의 기울기에 맞는 decision trees를 구축한다.   
 
 
 \begin{align}
@@ -169,15 +170,14 @@ $\lambda_{ij}$를 도출하는 데 사용한 pairwise loss는, 쿼리의 상단/
 어쨌든, 우리는 positionally-aware "gradient”의 pairwise loss function을 가지고 있다. (물론 이 기울기는 differentially-labeled products인 아이템 single product - product pair $(i, j)$에 대한 것이다.)   
 LightGBM과 GBDT는 일반적으로 제품 쌍 내의 단일 제품이 아니라 *individual samples*(또는 데이터 세트의 rows)과 관련하여 계산된 loss gradients 에 대해 decision trees를 회귀학습시킨다.
 
-In order to just get the *gradient with respect to product i*, we have to accumulate the gradient across all pairs of products where $i$ is the more-relevant item, and symmetrically, across all pairs where $i$ is the less-relevant item.     
-(문장 다듬기 중) *gradient with respect to product i*를 얻기 위해, 우리는 모든 아이템 pair에 대해 gradient를 누적해야 한다. (이때 $i$는 모든 pair에 걸쳐 더 relevant한 아이템이고, symmetrical하다.) 여기서 $i$는 less-relevant한 아이템이다.    
+*product i에 대한 기울기*를 얻기 위해, 우리는 모든 아이템 pair에 대해 gradient를 누적한다. (이때 $i$는 모든 pair에 걸쳐 더 relevant한 아이템이고, symmetrical하다.) 여기서 $i$는 less-relevant한 아이템이다.    
 $I$는 첫 번째 아이템이 두 번째 아이템보다 더 relevant한 item pairs 집합 $(i,j)$을 참조하도록 한다.
 
 \begin{align}
 \lambda_{i} = \sum_{j:\{i, j\} \in I}\lambda_{ij} - \sum_{j:\{j, i\} \in I}\lambda_{ij}
 \end{align}
 
-혼란스럽게도, LightGBM(XGBoost)은 *gradient boosted* tree 학습 라이브러리로 알려져 있다. 그것은 실제로 *Newton boosting* [3](#3)을 구현한다. Gradient boosting은 tree-estimation 프로세스의 각 단계에서 loss의 현재 estimation에 대한 loss funtion의 **first** - 1차 Taylor approximation를 취하는 것을 전제로 한다. 그러나 loss function에 higher-order approximations를 취하면 더 나은 결과를 얻을 수 있으며, LightGBM은 **second** - 2차 근사치를 사용한다.
+LightGBM(XGBoost)은 *gradient boosted* tree 학습 라이브러리로 알려져 있다. 그것은 실제로 *Newton boosting* [3](#3)을 구현한다. Gradient boosting은 tree-estimation 프로세스의 각 단계에서 loss의 현재 estimation에 대한 loss funtion의 **first** - 1차 Taylor approximation를 취하는 것을 전제로 한다. 그러나 loss function에 higher-order approximations를 취하면 더 나은 결과를 얻을 수 있으며, LightGBM은 **second** - 2차 근사치를 사용한다.
 기본 gradient boosting에서 각 부스팅 반복 중에 우리는 새로운 decision tree를 $Y = g_{i}^{k}$에 직접 적합시킨다. 여기서 $g_{i}^{k}$는 iteration $k$에서 모델 loss의 기울기다.    
 그러나 Newton boosting에서 regression은 hessian(designated $h_{i}^{k}$)와 기울기를 모두 포함한다 : 
 
@@ -203,11 +203,14 @@ loss의 첫 번째 도함수만 도출했으므로, quotient rule을 적용하�
 
 
 #### **Pointwise, pairwise, or listwise?**
+내가 이전에 작성한 [Learning To Rank의 기본 - Pointwise, Pairwise, Listwise]()라는 포스트에서 위 3가지 loss 정의 방법에 대해 자세히 다루고 있다.
+
+
 `lambdarank` gradient의 매우 혼란스러운 측면은, classic한 pairwise loss function의 gradient와 밀접한 관련이 있음에도 불구하고, LightGBM `LGBMRanker` 모델이 쿼리 내에서 *개별* 항목에 score를 매길 수 있다는 것이다. ranking 제시를 위해 'rnk.predict(x1,x2)'처럼 두 개의 inputs을 넣을 필요가 없다.
 또한, gradient $\frac{\partial \text{logloss}}{\partial s_{i}}$를 도출하는 데 필요한 계산은, 이것이 마치 listwise Rank 알고리즘인 것처럼 쿼리 내의 모든 아이템 pairs에 대한 합계를 포함한다.    
     
 팩트는  `lambdarank` LightGBM gradient 가 pairwise classification에 기초한다는 것이다.
-그러나  lambdaMART model모델은 decision tree 모델 학습도 포함시킨다. 쿼리 내에서 differentially-labeled된 모든 아이템 pair의 기울기 계산을 위해서다. 
+그러나  lambdaMART model모델은 decision tree 모델 학습에도 포함된다. 쿼리 내에서 differentially-labeled된 모든 아이템 pair의 기울기 계산을 위해서다. 
 각 개별 아이템(each row in the training data)에 기울기 값이 할당된 다음, LightGBM은 해당 gradients에 대해 tree 모델을 회귀 학습시킨다.    
 이것이 우리가 `rnk.predict(x1)`와 같은 개별 아이템에 score를 매길 수 있는 이유이다 : 
 

@@ -1,5 +1,5 @@
 ---
-title: LTR의 기본 - Pointwise, Pairwise, Listwise 그리고 NDCG
+title: Learning To Rank의 기본 - Pointwise, Pairwise, Listwise
 date: 2022-10-21 17:00:00 +0800
 categories: [Rankig, 추천시스템]
 tags: [추천시스템, evaluate, NDCG, pair wise, point wise, list wise]
@@ -10,8 +10,7 @@ published: True
 ---
 
 ## 구현한 추천 모델 성능 평가       
-오늘은 추천 시스템 모델의 objective function과 밀접한 관계가 있는 point-wise와 pair-wise , list-wise에 대해 정리한다.      
-
+오늘은 추천 시스템 모델의 objective function과 밀접한 관계가 있는 point-wise와 pair-wise , list-wise에 대해 정리한다. 이들은 loss를 정의하는 방법들이다.     
 
 + 최근에 교육생 클리닉에서 설명해줬던 부분 :       
 + Objective function, loss function의 차이 [포스팅 예정]      
@@ -42,9 +41,10 @@ Score를 계산할 때도 (User, Item)이 아닌 (User, Pos Item, Neg Item)이 �
 ### 장점 :
 일반적으로 point-wise보다 더 좋은 성능을 보이며(물론 예외상황도 있다), relative order를 예측하는 것이기 때문에 더 Ranking스럽다.   
    
-* RankNet : Binary Cross Entropy loss를 사용하여 Pair-wise를 학습
-* LambdaRank : 높은 rank에 해당하는 Item에 더 높은 gradients를 주는 방식으로 학습
-* LambdaMART: Grdient Boosting 방법을 활용. LambdaRank보다 더 좋은 성능을 낸다
+* RankNet : Binary Cross Entropy loss를 사용하여 Pair-wise를 학습한다. score 자체를 예측한다.   
+* LambdaRank : 높은 rank에 해당하는 Item에 더 높은 gradients를 주는 방식으로 학습. score 자체를 예측한다.   
+* LambdaMART: Grdient Boosting 방법을 활용. LambdaRank보다 더 좋은 성능을 낸다. score의 변화량을 예측한다.   
+* LambdaRank, LambdaMART는 List-wise에서도 사용 가능
 
               
                      
@@ -57,9 +57,9 @@ Pair wise방법론이 두 개 아이템 간의 상대적 Rank를 학습에 반�
 ### 장점 :
 Listwise는 결과의 ‘랭킹’ 즉 순위를 가장 적절하게 나열하는 것 자체를 목적으로 하기 때문에 성능이 좋은 편이다.          
    
-* LambdaRank, LambdaMART는 List-wise에서도 사용 가능
-* SoftRank : 각 Item에 대한 rank 확률 분포를 구한다
-* ListNet : Plackett-Luce model를 사용하여 모든 rank 조합(permutation)에 대한 loss를 계산한다
+* LambdaRank, LambdaMART는 List-wise에서도 사용 가능   
+* SoftRank : 각 Item에 대한 rank 확률 분포를 구한다   
+* ListNet : Plackett-Luce model를 사용하여 모든 rank 조합(permutation)에 대한 loss를 계산한다   
 
 
        
