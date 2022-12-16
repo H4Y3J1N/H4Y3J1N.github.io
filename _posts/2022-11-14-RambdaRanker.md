@@ -205,7 +205,7 @@ loss의 첫 번째 도함수만 도출했으므로, quotient rule을 적용하�
 
 
 #### **Pointwise, pairwise, or listwise?**
-내가 이전에 작성한 'Learning To Rank의 기본 - Pointwise, Pairwise, Listwise'라는 포스트에서 위 3가지 loss 정의 방법에 대해 자세히 다루고 있다.
+내가 이전에 작성한 [Learning To Rank의 기본 - Pointwise, Pairwise, Listwise](https://h4y3j1n.github.io/posts/pointwise/)라는 포스트에서 위 3가지 loss 정의 방법에 대해 자세히 다루고 있다.
 
 
 `lambdarank` gradient의 매우 혼란스러운 측면은, classic한 pairwise loss function의 gradient와 밀접한 관련이 있음에도 불구하고, LightGBM `LGBMRanker` 모델이 쿼리 내에서 *개별* 항목에 score를 매길 수 있다는 것이다. ranking 제시를 위해 'rnk.predict(x1,x2)'처럼 두 개의 inputs을 넣을 필요가 없다.
