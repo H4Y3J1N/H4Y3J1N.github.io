@@ -6,7 +6,7 @@ tags: [추천시스템, evaluate, NDCG, pair wise, point wise, list wise]
 math: true
 mermaid: true
 pin: false
-published: True
+published: False
 ---
 
 ## 구현한 추천 모델 성능 평가       

@@ -5,7 +5,7 @@ categories: [Rankig, 추천시스템]
 tags: [추천시스템, LGBM Ranker, lambdarank, LTR, Learning To Rank]
 math: true
 pin: false
-published: True
+published: False
 ---
 
 이번 포스트에서는 `Learning To Rank(LTR)`에 대해 다뤄보고자 한다.      
