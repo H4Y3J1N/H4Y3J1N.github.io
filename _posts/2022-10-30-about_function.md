@@ -5,7 +5,7 @@ categories: [머신러닝, ML]
 tags: [cost function, loss function, objective function, 목적함수 비용함수 차이]
 mermaid: true
 pin: false
-published: true
+published: false 
 ---
 
 목적함수와 손실함수, 비용함수의 차이는 정확히 무엇일까?    
