@@ -1,61 +1,79 @@
 ---
-title: LGBM 모델에서 lambdarank objective의 내부작동원리
+title: Learning To Rank와 lambdarank objective의 작동원리
 date: 2022-11-14 15:00:00 +0800
 categories: [Rankig, 추천시스템]
-tags: [추천시스템, LGBM Ranker, lambdarank]
+tags: [추천시스템, LGBM Ranker, lambdarank, LTR, Learning To Rank]
 math: true
 pin: false
 published: True
 ---
 
-# Main Reference
-이번에는 Learning To Rank(LTR)에 대해 다뤄보고자 한다.      
-LTR은 ‘랭킹 학습’으로, 이것이 기존의 Rating 추천과 어떻게 다른지 함께 다룰 예정이다.         
-본 포스트는 [Frank Fineis의 포스트](https://ffineis.github.io/blog/2021/05/01/lambdarank-lightgbm.html)의 내용을 번역하고, 이해를 돕기 위해 글쓴이가 해설 및 추가 공부를 통해 세부해설을 덧붙인 버전이다. 매끄러운 문장과 더 쉬운 설명을 위해 직역과 의역을 섞었고, 생략된 문단도 있다.        
-추가적으로 마이크로소프트의 논문 [From RankNet to LambdaRank to LambdaMART: An Overview](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/MSR-TR-2010-82.pdf)의 내용을 추가해 서술을 덧붙였다.   
+이번 포스트에서는 `Learning To Rank(LTR)`에 대해 다뤄보고자 한다.      
+Ranking 모델의 object function인 `lambdarank`도 다룬다.    
+
+> 추가 예정 : `LambdarankNDCG` 라는 optimization function에서 정확히 무슨 일이 일어나고 있는지 자세히 알아보려고 한다.
+> `LambdarankNDCG`란 LightGBM에서 LamdbaMART를 estimate(추정)하는 데에 쓰는 함수이다.  
+
+## Main Reference    
+본 포스트는 [Frank Fineis의 포스트](https://ffineis.github.io/blog/2021/05/01/lambdarank-lightgbm.html) 와 마이크로소프트에서 발표한 논문 [From RankNet to LambdaRank to LambdaMART: An Overview](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/MSR-TR-2010-82.pdf)과 [이혜진님의 포스팅](https://leehyejin91.github.io/post-learning_to_rank_1/) 을 참고해 영어 원문을 번역하고, 이해를 돕기 위해 글쓴이가 해설 및 추가 공부를 통해 세부해설을 덧붙인 버전이다. 매끄러운 문장과 더 쉬운 설명을 위해 직역과 의역을 섞었고, 생략된 문단도 있다.           
      
+
+# So, What is LTR ?
+Rating 추천의 목표는 유저가 아이템에 부여한 점수를 정확히 예측하는 것이며, 이 점수가 큰 순서대로 top N의 추천 순위가 결정된다. ALS 모델(MF계열 모델)이 대표적이다.     
+반면 ‘랭킹 예측(ranking prediction) 문제’에서 아이템 점수 예측은 중요하지 않다. 여기서는 어떤 아이템을 더 선호하는지가 중요하며, 아이템 - 아이템 간의 선호 관계를 학습(선호강도의 우열을 정확히 추론)하는 것이 LTR의 목표다. LTR은 ‘랭킹 학습’으로, 이것은 Rating 추천과 완전히 다르다.    
+
+![MLR-search-engine-example svg](https://user-images.githubusercontent.com/88483620/207998679-92632199-2384-4531-8fd2-a1ea6f70b501.png)
+_이미지의 retrieval을, 추천에서는 'candidate generation'이라고 이해하면 된다_   
+
+위 그림은  [Wikipedia](https://en.wikipedia.org/wiki/Learning_to_rank)의 Learning To Rank 아키텍쳐 도식이다. Index와 강하게 연관되는 작업은 Top-k retrieval이며, Training data와 강하게 연관되는 작업은 Ranking model이다. 다시 말해, Rating을 예측해 만들어낸 retrieval에 다시 한 번 Ranking 모델을 적용해 순위를 매긴 뒤에 결과 페이지로 추천 내용이 serve하는 것이 LTR이다.     
+추천에서의 candidate generation은 most popular나 Apriori, co-visitation matrix 등을 활용해 만들어낸다. 하지만 이것을 그냥 무작위로 추천하는 것은 유의미하지 않을 것이다. 수많은 아이템들 사이에서 유저가 특히 더 좋아할 것을 상위에 노출시키는 것이 추천의 중요한 task다.      
+
    
-# 랭킹의 목표 (== Ranking objective)
+# Ranking objective
+이렇게 sort-order 아이템들을 최적의 방식으로 Ranking하는 방식을 Rank 학습이라고 한다. regression 분석은 아니지만, 일부 Rank 솔루션에는 regression이 포함될 수 있다. 또한 정확한 binary classification은 아니지만, 인기 있는 Rank 모델 몇 가지는 이진 분류와 밀접한 관련이 있다. 어쨌든 중요한 것은 Ranker는 regression이나 classification과는 별개의 방법론이라는 뜻이다. 이건 LGBM에서도 XBG에서도 마찬가지다.    
+일부 Rank 모델은 랭킹을 매기는 데에 있어서 확률(assigning probabilities)을 포함하기도 한다. 여기서 확률이란 regression 혹은 classification 모델이 산출한 결과를 prob를 말하는 것인데, 추천에서의 prob는 유저의 아이템 구매 확률, 혹은 선호 확률을 뜻한다.
+Rank모델의 성능을 평가하는 evaluating metrics의 경우에도, "정말 잘 Rank되었는가"의 여부는 standard precision, recall, or RMSE 보다 [NDCG](https://en.wikipedia.org/wiki/Discounted_cumulative_gain) 나 [ERR](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.157.4509&rep=rep1&type=pdf)이 더 효과적이다.
 
-sort-order 아이템들을 최적의 방식으로 정렬하는 방식은 Rank 학습(or LETOR. 이 포스트에서는 이후로 Rank라고 지칭한다.)라고도 하며, 사람들이 흔히 쓰지 않는 supervised machine learning의 일종이다.    
-직접적인 regression 분석은 아니지만, 일부 Rank 솔루션에는 regression이 포함될 수 있다. 또한 정확한 binary classification은 아니지만, 인기 있는 Rank 모델 몇 가지는 이진 분류와 밀접한 관련이 있다. 이 문장은 Ranker는 regression이나 classification과는 별개의 방법론이라는 뜻이다. 이건 LGBM에서도 XBG에서도 마찬가지다.    
-일부 Rank 모델은 랭킹을 매기는 데에 있어서, 확률 부여(assigning probabilities)를 포함하기도 한다. 여기서 확률 부여라는 것은 regression 혹은 classification 모델이 산출한 결과를 prob를 말하는 것인데, 이때의 prob는 유저의 아이템 구매 확률, 혹은 선호 확률을 뜻한다.
-Rank모델의 성능을 평가하는 evaluating metrics의 경우에도, "정말 잘 Ranking되었는가"의 여부는 standard precision, recall, or RMSE 보다도 [NDCG](https://en.wikipedia.org/wiki/Discounted_cumulative_gain) and [ERR](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.157.4509&rep=rep1&type=pdf)이 더 효과적이다.
-
-
-> 이 글에서는 `lambdarank`의 objective와 핵심 원리를 다루고,
-> `LambdarankNDCG` 라는 optimization function에서 정확히 무슨 일이 일어나고 있는지 자세히 알아보려고 한다.
-> `LambdarankNDCG`란 LightGBM에서 LamdbaMART를 estimate(추정)하는 데에 쓰는 함수이다.
+> 정리하자면 LTR의 목표는 candidate 내에서의 Ranking이다. (Kaggle discussion에서는 이것을 ReRanking이라고도 부른다.)     
 
 
-
-## Rank 학습이 어려운 이유
-Rank가 기존의 supervised learning tasks보다 어려운 가장 큰 이유는, 데이터가 계층적(hierarchical)이기 때문이다.
-일반적인 연속 회귀 분석 또는 binary/multiclass/multilabel 레이블 분류 모델에서는, 하나의 input vector 를 하나의 output vector에 매핑한다.
-그리고 각 input은 일반적으로 $IID$ 분포로 가정된다. $IID$ 란 독립항등분포로, 확률변수가 여러 개 있을 때 (X 1 , X 2 , ... , X n) 이들이 상호독립적이며, 모두 동일한 확률분포 f(x)를 가진다면 독립항등분포라고 한다.
-추천 task의 최종 결과물은 아이템 목록(list)이다. 이 list 내에서 아이템들의 Rank를 매길 때, 측정 단위(항목)는 서로 독립적이지 않다. 오히려 서로 *relative* 하게(==상대적으로) 차등 순위가 매겨진다. 
-다시 말하자면, Ranking models이 출력해야 하는 것은 prob(확률)이나 조건부 평균 $E[Y|X]$ 추정치가 아니라 list 내의 아이템들을 최적의 순서로 정렬(Ranking)한 값이다.
-세 가지 아이템이 있을 때, 대해 각각  $\{-\infty, 0, \infty\}$ 의 score를 출력하는 Rank 모델은, 동일한 아이템 각각에 대해 점수 $\{-0.01, -0.005, -0.001\}$를 출력하는 Rank 모델과 정확히 동일한 순위(3위, 2위, 1위가 될 것이다)를 제공한다. Ranking이 회귀나 분류와는 다르다는 말의 근거는 바로 이 맥락에 있다. 
-
-
-Rank를 위한 데이터셋은 기본적으로 첫 번째 colmn에 종속 변수가 있고, 두 번째 column’에 qid’(=그룹 식별자)를 가 있고, 다른 column들에 다른 feature값이 들어 있다.   
-따라서 Rank 모델에 필요한 data shape RNN/LSTM 모델의 input으로 넣어야 하는 데이터와 매우 유사한 구조를 가진다 : (samples, time steps, $y$).    
-예를 들자면, 아래처럼 single query 내의 여러 아이템으로 구성된다:    
+## Rank 학습이 낯선 이유   
+Rank가 기존의 supervised learning tasks보다 복잡하게 느껴지는 이유는, 데이터가 계층적(hierarchical/선호순위가 존재)이기 때문이다.
+일반적인 연속 회귀 분석 또는 binary/multiclass/multilabel 레이블 분류 모델에서는, 하나의 input vector가 하나의 output vector에 매핑한다. 그리고 각 input은 일반적으로 $IID$ 분포로 가정된다. ($IID$ 란 독립항등분포로, 확률변수가 여러 개 있을 때 (X 1 , X 2 , ... , X n) 이들이 상호독립적이며, 모두 동일한 확률분포 f(x)를 가진다면 독립항등분포라고 한다.)     
+추천 task의 최종 결과물은 아이템 목록(list)이다. 이 list 내에서 아이템들의 Rank를 매길 때, 측정 단위(아이템)는 서로 독립적이지 않다. 오히려 서로 *relative* 하게(==상대적으로) 차등 순위가 매겨진다. 
+다시 말하자면, **Ranking models이 출력해야 하는 것은 prob(확률)이나 조건부 평균 $E[Y|X]$ 추정치가 아니라 list 내의 아이템들을 최적의 순서로 정렬(Ranking)한 값이다.**   
+세 가지 아이템이 있을 때, 대해 각각  $\{-\infty, 0, \infty\}$ 의 score를 출력하는 Rank 모델은, 동일한 아이템 각각에 대해 점수 $\{-0.01, -0.005, -0.001\}$를 출력하는 Rank 모델과 정확히 동일한 순위(3위, 2위, 1위가 될 것이다)를 제공한다. Ranking이 회귀나 분류와는 다르다는 말의 근거는 바로 이 맥락에 있다.    
+   
 
 
-| Y       |    qid  |   feature_0 | feature_1    | feature_2 | feature_3   |
-|---------|---------|-------------|--------------|-----------|-------------|
-|    0    |    0    |    12.2     |    -0.9      |   0.23    |   103.0     |
-|    1    |    0    |    13.0     |   1.29       |   0.98    |   93.5      |
-|    2    |    0    |    14.0     |   1.29       |   0.98    |   93.5      |
-|    0    |    0    |    11.9     |   1          |   0.94    |   90.2      |
-|    1    |    1    |    10.0     |   0.44       |   0.99    |   140.51    |
-|    0    |    1    |    10.1     |   0.44       |   0.98    |   160.88    |
+# Learning To Rank Dataset   
+이제는 예시 데이터를 사용해 더 자세히 알아보자. 데이터셋의 구조는 [이혜진님의 포스트](https://leehyejin91.github.io/post-learning_to_rank_1/)에서 가져온 것이다. 
+
+   
+| query(user) |document(item)|   features  | relevance |
+|-------------|--------------|-------------|-----------|
+|    u1       |        l1    | x1=[u1, l1] |       2   |
+|    u1       |        l2    | x2=[u1, l2] |       5   |
+|    u2       |        l2    | x3=[u2, l2] |       1   |
+|    u2       |        l3    | x4=[u2, l3] |       4   |
 
 <br>
 
+데이터셋은 크게 4가지(로그 데이터를 생성한 유저, 로그 대상 아이템, 유저와 아이템의 관계를 표현한 피처, 검색어와 문서의 관련성을 표현한 라벨) 정보로 구성된다. 예를 들어 검색어 u1과 관련된 아이템은 {l1, l2}이고, (u1, l1)와 (u1, l2)의 관계를 표현한 피처가 각각 x1, x2다. 중요한 것은 relevance인데, 이는 각 유저가 아이템과 얼마나 관련성 있는지 나타내는 값으로, 추천시스템은 relevance를 implicit 혹은 explicit한 여러 방식으로 정의할 수 있다. 일단 이 테이블에서는 평점이라고 정의하겠다.
 
-## Pairwise loss starts with binary classification
+![LTR_hyejin_table](https://user-images.githubusercontent.com/88483620/208009459-48460ba5-9e43-41ef-ab85-96c60c9a2469.png)
+_출처 : 이혜진님 포스트_
+
+위 이미지에서는 왼쪽의 행렬에 주목하라. 이처럼 유저-아이템 평점 행렬을 만들 수 있다면, 랭킹학습을 위한 데이터셋을 쉽게 만들어 볼 수 있다. 데이터셋을 봤으니, 이제는 모델 학습 컨셉과 loss function까지 차근차근 알아보자.      
+
+
+# Learning To Rank Model Concept
+일반적으로 LTR에서는 relevance(score) 예측 모델을 만든다. input은 feature이며, 모델은 relevance(score)를 예측한다는 점에서 scoring function이라고 한다. 
+
+
+
+
+## binary classification으로 Pairwise loss 이해하기
 `lambdarank` LightGBM 모델의 objective는 표준 binary classification 모델의 objective를 수정한 것에 불과하다. 그러므로, 본격적인 시작 전 classification로 간단한 리프레시를 해 보겠다.
 
 두 개의 아이템, $i$ 와 $j$가 있다고 해 보자. 이때 $Y_{i} > Y_{j}$, 즉 $i$ 항목이 $j$ 항목보다 더 (유저에게)관련이 있다(=선호가 높다)고 가정한다.    
@@ -98,24 +116,23 @@ ML 엔지니어들은 일반적으로 loglikelihood의 -1배를 `logloss`라고 
 \text{logloss}\_{ij} = (y_{ij}-1)\log(e^{-\sigma (s_{i} - s_{j})}) + y_{ij}\log(1 + e^{-\sigma (s_{i} - s_{j})})
 \end{align}
 
-pairwise loss for ranking에 대한 문헌에서, 이 부분은 원작자가 약간 손을 댄 부분이다 : 우리는 $y_{ij} = 1$인 경우에만 배우면 된다.    
-이는 negative cases가 symmetric하기 때문이다 ; $Y_{i} > Y_{j}$일 때($(i, j)$ pair에 label $y=1$이 있음을 의미), 이는 $(j, i)$에 $y=0$ label이 있음을 의미한다.    
-tied pairs에 대한 훈련은 도움이 되지 않는다. 모델이 relevant한 아이템과 irrelevant한 아이템을 구별하려고 하기 때문이다. 그러므로, 우리가 정말로 챙겨야 할 것은 $y_{ij}=1$의 instances이며, 그랬을 때 pairwise logloss를 단순화할 수 있다.
+유저의 비선호를 학습할 필요는 없다. 선호만 학습하는 것이 task를 훨씬 단순화하기 때문이다. 따라서 우리는 $y_{ij} = 1$인 경우에만 고려하면 된다.    
+조금 더 덧붙이자면, negative cases가 symmetric하기 때문이다 ; $Y_{i} > Y_{j}$일 때($(i, j)$ pair가 label $y=1$을 가짐을 의미), 이는 $(j, i)$이 $y=0$ label을 가짐을 의미한다.     
+모델이 relevant한 아이템과 irrelevant한 아이템을 구별하려고 하기 때문에, tied pairs에 대한 훈련은 도움이 되지 않는다. 그러므로, 우리가 정말로 챙겨야 할 것은 $y_{ij}=1$의 instances이며, 그랬을 때 pairwise logloss를 단순화할 수 있다.    
 
 \begin{align}
 \text{logloss}\_{ij} = \log(1 + e^{-\sigma (s_{i} - s_{j})})
 \end{align}
 
-이 loss는 "pairwise logistic loss", "pairwise loss", "RankNet loss”로도 알려져 있다. (after the siamese neural network used for pairwise ranking first proposed in [[2]](#2)).
+이 loss는 "pairwise logistic loss", "pairwise loss", "RankNet loss”로도 알려져 있다. [[2]](#2)
 
 ![pairwise_logistic_loss](https://user-images.githubusercontent.com/88483620/207800351-28ae70a5-686a-4f93-815e-336678f7d886.png)
 _pairwise logistic loss_ 
 
-위 수식은 그리 어렵지 않다 : $Y_{i} > Y_{j}$이고, scores $s_{i} - s_{j} > 0$를 predict할 수 있을 때 모델은 작은 loss값을 가질 것이다.    
-* loss는 $s_{j} > s_{i}$일 때 큰 값을 가진다.     
-* 모든 $s_{i} - s_{j}$에 대한 gradient loss는 $\sigma$에 의해 제어된다.
-
-$\sigma$ 값이 클수록, 0에 가까운 값보다 pairwise inconsistencies에 패널티를 준다. 
+위 수식은 그리 어렵지 않다 : $Y_{i} > Y_{j}$이고, scores $s_{i} - s_{j} > 0$를 predict할 수 있을 때 모델은 작은 loss값을 가진다.    
+* loss는 $s_{j} > s_{i}$일 때 큰 값을 가진다.      
+* 모든 $s_{i} - s_{j}$에 대한 gradient loss는 $\sigma$에 의해 제어된다.    
+$\sigma$ 값이 클수록, 0에 가까운 값보다 pairwise 불일치(inconsistencies)에 패널티를 준다. 
 
 
 ## LightGBM 는 lambdarank gradient로 gradient boosting을 구현한다.
