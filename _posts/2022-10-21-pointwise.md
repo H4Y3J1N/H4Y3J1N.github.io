@@ -1,7 +1,7 @@
 ---
 title: Learning To Rank 기본 - Pointwise, Pairwise, Listwise
 date: 2022-10-21 17:00:00 +0800
-categories: [Rankig, 추천시스템]
+categories: [Ranking, 추천시스템]
 tags: [추천시스템, evaluate, NDCG, pair wise, point wise, list wise]
 math: true
 mermaid: true
