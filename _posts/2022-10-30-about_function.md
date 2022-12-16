@@ -24,15 +24,14 @@ Cost Function은 오차를 계산하므로, Loss Function이 순간순간 만들
 MSE(Mean Squared Error, 평균 제곱 오차), MAE(Mean Absolute Error, 평균 절대 오차), Binary Cross-entropy (a.k.a logloss) 등을 예시로 들 수 있다.   
 
 
-# Objective function
-
+# Objective function   
 목적 함수는 말그대로 특정한 목적(Object)을 가지고 모델 학습을 최적화하는 함수이다. 경사 하강법(Gradient Descent)을 사용한 optimization 방식에선 Cost Function ==  Objective function 라고 생각해도 무방하다.    
 하지만 MLE(Maximum Likelihood Estimate)와 같이 확률을 최대로 하는 방법을 사용할 경우에는, 다시 말해 `값을 maximize하는 방법`을 사용할 때는 Cost Function이 아닌 `Objective Function` 이라고 지칭해야 한다.    
 기본적으로 cost function이나 loss function은 값을 최소화한다는 의미를 가지기 때문이다.    
 
-[Cross Validated](https://stats.stackexchange.com/questions/179026/objective-function-cost-function-loss-function-are-they-the-same-thing)의 원문을 그대로 옮기면 다음과 같다.     
+[Cross Validated](https://stats.stackexchange.com/questions/179026/objective-function-cost-function-loss-function-are-they-the-same-thing) 원문을 그대로 옮기면 다음과 같다.     
 
-> Objective function is the most general term for any function that you optimize during training. For example, a probability of generating training set in maximum likelihood approach is a well defined objective function, but it is not a loss function nor cost function (however you could define an equivalent cost function).
+> Objective function is the most general term for any function that you optimize during training. For example, a probability of generating training set in maximum likelihood approach is a well defined objective function, but it is not a loss function nor cost function (however you could define an equivalent cost function).   
 
 * For example:
 * MLE is a type of objective function (which you maximize)
