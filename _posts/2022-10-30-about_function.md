@@ -2,7 +2,7 @@
 title: 목적함수(Objective Function)와 비용함수(Cost Function)의 차이
 date: 2022-10-30 11:00:00 +0800
 categories: [머신러닝, ML]
-tags: [cost function, loss function, objective function, 목적함수 손실함수 차이]
+tags: [cost function, loss function, objective function, 목적함수 비용함수 차이]
 mermaid: true
 pin: false
 published: true
@@ -31,6 +31,7 @@ MSE(Mean Squared Error, 평균 제곱 오차), MAE(Mean Absolute Error, 평균 �
 기본적으로 cost function이나 loss function은 값을 최소화한다는 의미를 가지기 때문이다.    
 
 [Cross Validated](https://stats.stackexchange.com/questions/179026/objective-function-cost-function-loss-function-are-they-the-same-thing)의 원문을 그대로 옮기면 다음과 같다.     
+
 > Objective function is the most general term for any function that you optimize during training. For example, a probability of generating training set in maximum likelihood approach is a well defined objective function, but it is not a loss function nor cost function (however you could define an equivalent cost function).
 
 * For example:
