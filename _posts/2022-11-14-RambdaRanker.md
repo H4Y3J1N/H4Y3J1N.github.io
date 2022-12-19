@@ -179,9 +179,9 @@ $I$는 첫 번째 아이템이 두 번째 아이템보다 더 relevant한 item p
 \lambda_{i} = \sum_{j:\{i, j\} \in I}\lambda_{ij} - \sum_{j:\{j, i\} \in I}\lambda_{ij}
 \end{align}
 
-LightGBM(XGBoost)은 *gradient boosted* tree 학습 라이브러리로 알려져 있다. 그것은 실제로 *Newton boosting* [3](#3)을 구현한다. Gradient boosting은 tree-estimation 프로세스의 각 단계에서 loss의 현재 estimation에 대한 loss funtion의 **first** - 1차 Taylor approximation를 취하는 것을 전제로 한다. 그러나 loss function에 higher-order approximations를 취하면 더 나은 결과를 얻을 수 있으며, LightGBM은 **second** - 2차 근사치를 사용한다.
+LightGBM(XGBoost)은 *gradient boosted* tree 학습 라이브러리로 알려져 있다. 그것은 *Newton boosting* [3](#3)을 구현한다. Gradient boosting은 tree-estimation 프로세스의 각 단계에서 loss의 현재 estimation에 대한 loss funtion의 **first** - 1차 Taylor approximation를 취하는 것을 전제로 한다. 그러나 loss function에 higher-order approximations를 취하면 더 나은 결과를 얻을 수 있으며, LightGBM은 **second** - 2차 근사치를 사용한다.
 기본 gradient boosting에서 각 부스팅 반복 중에 우리는 새로운 decision tree를 $Y = g_{i}^{k}$에 직접 적합시킨다. 여기서 $g_{i}^{k}$는 iteration $k$에서 모델 loss의 기울기다.    
-그러나 Newton boosting에서 regression은 hessian(designated $h_{i}^{k}$)와 기울기를 모두 포함한다 : 
+하지만 Newton boosting에서 regression은 hessian(designated $h_{i}^{k}$)와 기울기를 모두 포함한다 : 
 
 
 \begin{align}
@@ -208,8 +208,8 @@ loss의 첫 번째 도함수만 도출했으므로, quotient rule을 적용하�
 내가 이전에 작성한 [Learning To Rank의 기본 - Pointwise, Pairwise, Listwise](https://h4y3j1n.github.io/posts/pointwise/)라는 포스트에서 위 3가지 loss 정의 방법에 대해 자세히 다루고 있다.
 
 
-`lambdarank` gradient의 매우 혼란스러운 측면은, classic한 pairwise loss function의 gradient와 밀접한 관련이 있음에도 불구하고, LightGBM `LGBMRanker` 모델이 쿼리 내에서 *개별* 항목에 score를 매길 수 있다는 것이다. ranking 제시를 위해 'rnk.predict(x1,x2)'처럼 두 개의 inputs을 넣을 필요가 없다.
-또한, gradient $\frac{\partial \text{logloss}}{\partial s_{i}}$를 도출하는 데 필요한 계산은, 이것이 마치 listwise Rank 알고리즘인 것처럼 쿼리 내의 모든 아이템 pairs에 대한 합계를 포함한다.    
+`lambdarank` gradient의 매우 혼란스러운 점은, classic한 pairwise loss function의 gradient와 밀접한 관련이 있음에도 불구하고, LightGBM `LGBMRanker` 모델이 쿼리 내에서 *개별* 항목에 score를 매길 수 있다는 것이다. ranking 제시를 위해 'rnk.predict(x1,x2)'처럼 두 개의 inputs을 넣을 필요가 없다.
+또한, gradient $\frac{\partial \text{logloss}}{\partial s_{i}}$를 도출하는 데 필요한 계산은 (listwise Rank 알고리즘처럼) 쿼리 내의 모든 아이템 pairs에 대한 합계를 포함한다.   
     
 팩트는  `lambdarank` LightGBM gradient 가 pairwise classification에 기초한다는 것이다.
 그러나  lambdaMART model모델은 decision tree 모델 학습에도 포함된다. 쿼리 내에서 differentially-labeled된 모든 아이템 pair의 기울기 계산을 위해서다. 
@@ -239,7 +239,7 @@ rnk.predict(X[50, :].reshape(1, -1))  # pointwise score for row 50
 
 각 objective class는 반드시 모델 'score'(일명 "loss") 값, 'gradients' 및 'hessians'을 업데이트할 수 있는 'GetGradients'라는 이름의 method를 정의해야 한다.
 각각의 objective 파일은 여러 개의 objective classes를 포함할 수 있다.
-`GDBT` class 는 `boosting/gbdt.cpp` 를 포함하고 있다. 그것은 GetGradients를 실제로 호출해 LightGBM의 메인 학습 루틴에 regression trees를 훈련시킨다.
+`GDBT` class 는 `boosting/gbdt.cpp` 를 포함하고 있다. 이건 GetGradients를 실제로 호출해 LightGBM의 메인 학습 루틴에 regression trees를 훈련시킨다.
 
 ```
 void GetGradients(const double* score, score_t* gradients,
@@ -261,10 +261,9 @@ virtual void GetGradientsForOneQuery(data_size_t query_id, data_size_t cnt,
 }
 ```
 
-There are actually a couple of different ranking objectives offered by LightGBM that each subclass a `RankingObjective` wrapper class:
-- `LambdarankNDCG`: this is the selected objective class when you set `LGBMRanker(objective="lambdarank")`.
-- `RankXENDCG`: Rank-cross-entropy-NDCG loss ($XE_{NDCG}$ for short) is a new attempt to revise the lambdarank gradients through a more theoretically sound argument that involves transforming the model scores $s_{i}$ into probabilities and deriving a special form of multiclass log loss [[6]](#6).
-
+LightGBM은 `RankingObjective` wrapper class를 subclass로 분류하는 두 가지의 ranking objectives를 제공한다 :     
+- `LambdarankNDCG`: `LGBMRanker(objective="lambdarank")`를 설정하면 선택되는 objective class.      
+- `RankXENDCG`: $XE_{NDCG}$)는 lambdarank gradients를 수정하려는 새로운 시도이다. model scores $s_{i}$를 확률로 변환하고, multiclass log loss의 특수한 형태를 도출한다 [[6]](#6).
 
 
 ## other References
