@@ -40,7 +40,7 @@ GraphSAGE에서는 target node의 이웃 노드 세트를 먼저 샘플링한 �
 여기서 말하는 노드란 Neighborhood Representation의 비선형 변환이다.    
 
 
-![image](https://user-images.githubusercontent.com/88483620/221349814-e4f56cf3-4653-4e25-97d2-5e76993fb57c.png)
+[이미지 추가]    
 
 실제 graph로 표현되는 데이터는 새로운 node들이 실시간으로 추가되는 경우(Evolving Graph)가 매우 많다. Evolving Graph의 경우, 한 서비스에서 신규 유저가 추가되었다면, 기존 유저+신규 유저에 대한 node representation을 처음부터 다시 학습해야 한다.    
 본 논문에서는 fixed graph에 대한 node embedding을 학습하는 transductive learning 방식의 한계점을 지적하고, evolving graph에서 새롭게 추가된 node에 대해서도 inductive node embedding을 산출할 수 있는 프레임워크인 GraphSage를 제안한다. 이름은 SAmple과 aggreGatE를 결합했다.    
