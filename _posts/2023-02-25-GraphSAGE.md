@@ -1,11 +1,11 @@
 ---
 title: GraphSAGE(Inductive Representation Learning on Large Graphs) 논문 리뷰
-date: 2023-02-25 11:30:00 +0800
+date: 2023-02-28 11:30:00 +0800
 categories: [논문리뷰, 추천시스템]
-tags: [추천시스템, DL, Graph, GraphSAGE, 논문리뷰]
-math: true
+tags: [추천시스템, DL, GraphSAGE, 논문리뷰]
 mermaid: true
-published: True
+pin: false
+published: true
 ---
 
 본 포스팅에서는 [GraphSAGE 논문](https://arxiv.org/abs/1706.02216)을 리뷰한다.   
